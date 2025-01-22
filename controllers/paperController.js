@@ -12,35 +12,39 @@ import { QuestionPaper } from "../models/questionPaper.js";
 import lodash from "lodash";
 import { Op } from "sequelize";
 import { sendMessageOfCompletion } from "./questionController.js";
+import {
+  compareBluePrintAndOpenaiHashmaps,
+  convertDiffToArray,
+  processBlueprintData,
+  processResponseData,
+} from "../utils/processBlueprint.js";
 
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const MAX_RETRY_COUNT = 2;
+const MAX_RETRY_COUNT = 4;
 
 class QuestionPaperController {
   async generateQuestionPaper(req, res) {
     try {
-      const { name, blueprint, grade, subject,totalMarks } = req.body;
-
-      if (!blueprint) {
-        return res.status(400).json({ error: "Blueprint is required" });
-      }
-
-      if (!name) {
-        return res.status(400).json({ error: "Name is required" });
-      }
-
-      if (!grade) {
-        return res.status(400).json({ error: "Grade is required" });
+      const { name, blueprint, grade, subject, totalMarks, lengthOfBlueprint } =
+        req.body;
+      let bluePrintToUseForPrompts = blueprint;
+      const REQUIRED_FIELDS = [
+        { field: blueprint, message: "Blueprint is required" },
+        { field: name, message: "Name is required" },
+        { field: grade, message: "Grade is required" },
+        { field: subject, message: "Subject is required" },
+      ];
+      const bluePrintHashMap = processBlueprintData(blueprint);
+      for (const { field, message } of REQUIRED_FIELDS) {
+        if (!field) {
+          return res.status(400).json({ error: message });
+        }
       }
 
       const topics = lodash.uniq(blueprint.map((question) => question.topic));
-
-      if (!subject) {
-        return res.status(400).json({ error: "Subject is required" });
-      }
 
       // Create a new QuestionPaper entry with status 'inProgress'
       const generatedPaper = await QuestionPaper.create({
@@ -56,34 +60,33 @@ class QuestionPaperController {
         questionPaper: generatedPaper,
       });
 
-      const messages = getOpenAIMessages(req, prompts);
       const responseFormat = getResponseFormat();
 
       let retryCount = 0;
-      let questionPaper;
+      let questionPaper = [];
       while (retryCount < MAX_RETRY_COUNT) {
+        let messages = getOpenAIMessages(bluePrintToUseForPrompts, prompts);
         const response = await openai.beta.chat.completions.parse({
           model: "gpt-4o",
           messages,
           response_format: responseFormat,
         });
-
         const result = response.choices[0].message.parsed;
-        questionPaper = result.answer;
-
-        if (questionPaper && questionPaper.length === blueprint.length) {
+        console.log("result length",result.answer.length)
+        questionPaper = [...questionPaper, ...result.answer];
+        console.log("questionPaper length",questionPaper.length)
+        if (questionPaper && questionPaper.length >= lengthOfBlueprint) {
           break;
         }
+        const openAiHashMap = processResponseData(questionPaper);
+        const diffInResults = compareBluePrintAndOpenaiHashmaps(
+          bluePrintHashMap,
+          openAiHashMap
+        );
+        const diffBluePrintForRemainingQuestions =
+          convertDiffToArray(diffInResults);
+        bluePrintToUseForPrompts = diffBluePrintForRemainingQuestions;
         retryCount++;
-      }
-
-      if (!questionPaper || questionPaper.length !== blueprint.length) {
-        // Update status to 'failed'
-        await generatedPaper.update({ status: "failed" });
-        return res.status(500).json({
-          error: "Failed to generate correct question paper",
-          incorrectQuestionPaper: questionPaper,
-        });
       }
       const structuredQuestionPaper = structureQuestionPaper({
         questionPaper,
