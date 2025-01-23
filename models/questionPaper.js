@@ -1,35 +1,42 @@
-import { Sequelize } from 'sequelize';
-import { sequelize } from '../connections/database.js';
+// models/QuestionPaper.js
 
-export const QuestionPaper = sequelize.define(
+const { DataTypes } = require('sequelize');
+const sequelize = require('../path/to/your/sequelize/instance');
+
+const QuestionPaper = sequelize.define(
   'QuestionPaper',
   {
     name: {
-      type: Sequelize.STRING,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     grade: {
-      type: Sequelize.INTEGER,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     topics: {
-      type: Sequelize.ARRAY(Sequelize.STRING),
+      type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: false,
     },
     subject: {
-      type: Sequelize.STRING,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     questionPaperLink: {
-      type: Sequelize.STRING,
+      type: DataTypes.STRING,
       allowNull: true,
     },
     solutionLink: {
-      type: Sequelize.STRING,
+      type: DataTypes.STRING,
       allowNull: true,
     },
+    questionPapersLinks: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      defaultValue: [],
+    },
     status: {
-      type: Sequelize.STRING,
+      type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'inProgress',
     },
@@ -44,3 +51,5 @@ export const QuestionPaper = sequelize.define(
     ],
   }
 );
+
+module.exports = QuestionPaper;

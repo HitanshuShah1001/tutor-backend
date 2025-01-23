@@ -8,6 +8,7 @@ export function structureQuestionPaper({
   academyName,
   totalMarks,
   subject,
+  timeDuration
 }) {
   const hasMCQ = questionPaper.some((q) => q.type === "MCQ");
   const mcqQuestions = questionPaper.filter((q) => q.type === "MCQ");
@@ -102,6 +103,7 @@ export function structureQuestionPaper({
     academyName,
     totalMarks,
     subject,
+    timeDuration
   };
 }
 
@@ -112,7 +114,14 @@ function addStepIndexes(calculationSteps) {
   }));
 }
 
-export function structureSolution(questionPaper) {
+export function structureSolution({
+  questionPaper,
+  grade,
+  academyName,
+  totalMarks,
+  subject,
+  timeDuration
+}) {
   const hasMCQ = questionPaper.some((q) => q.type === "MCQ");
 
   const mcqQuestions = questionPaper.filter((q) => q.type === "MCQ");
@@ -222,11 +231,11 @@ export function structureSolution(questionPaper) {
 
   // 8. Return final object with top-level fields
   return {
-    academyName: "Sample Input Academy Name",
-    subject: "Maths",
-    grade: "10",
-    totalMarks: "85",
-    timeDuration: "3 Hours",
+    academyName,
+    subject,
+    grade,
+    totalMarks,
+    timeDuration,
     sections,
   };
 }
@@ -380,4 +389,41 @@ export function getResponseFormat() {
       },
     },
   };
+}
+
+/**
+ * Shuffles an array in place using the Fisher-Yates algorithm.
+ * @param {Array} array - The array to shuffle.
+ */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    // Generate a random index between 0 and i
+    const j = Math.floor(Math.random() * (i + 1));
+    // Swap elements at indices i and j
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+export function createQuestionPaperSets(questionPaper, numberOfSets) {
+  const sets = [];
+
+  for (let setIndex = 0; setIndex < numberOfSets; setIndex++) {
+    // Deep clone the original question paper to avoid mutations
+    const clonedPaper = deepClone(questionPaper);
+
+    // Shuffle questions within each section
+    clonedPaper.sections.forEach((section) => {
+      if (section.questions && section.questions.length > 1) {
+        shuffleArray(section.questions);
+      }
+    });
+
+    sets.push(clonedPaper);
+  }
+
+  return sets;
 }

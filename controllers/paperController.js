@@ -7,6 +7,7 @@ import {
   generateHTML,
   getResponseFormat,
   uploadToS3,
+  createQuestionPaperSets,
 } from "../utils/generateQuestionPaper.util.js";
 import { QuestionPaper } from "../models/questionPaper.js";
 import lodash from "lodash";
@@ -28,7 +29,7 @@ const MAX_RETRY_COUNT = 4;
 class QuestionPaperController {
   async generateQuestionPaper(req, res) {
     try {
-      const { name, blueprint, grade, subject, totalMarks, lengthOfBlueprint } =
+      const { name, blueprint, grade, subject, totalMarks, lengthOfBlueprint, numberOfSets = 1, academyName, timeDuration } =
         req.body;
       let bluePrintToUseForPrompts = blueprint;
       const REQUIRED_FIELDS = [
@@ -72,9 +73,9 @@ class QuestionPaperController {
           response_format: responseFormat,
         });
         const result = response.choices[0].message.parsed;
-        console.log("result length",result.answer.length)
+        console.log("result length", result.answer.length)
         questionPaper = [...questionPaper, ...result.answer];
-        console.log("questionPaper length",questionPaper.length)
+        console.log("questionPaper length", questionPaper.length)
         if (questionPaper && questionPaper.length >= lengthOfBlueprint) {
           break;
         }
@@ -91,26 +92,52 @@ class QuestionPaperController {
       const structuredQuestionPaper = structureQuestionPaper({
         questionPaper,
         grade,
-        academyName: name,
+        academyName,
         totalMarks,
         subject,
+        timeDuration
       });
-      const structuredSolution = structureSolution(questionPaper);
-      const renderedQuestionPaperHTML = generateHTML(
-        structuredQuestionPaper,
-        "./templates/questionPaperTemplate.mustache"
-      );
+
+      let allQuestionPapersSets = [structuredQuestionPaper];
+      if (numberOfSets > 1) {
+        allQuestionPapersSets = createQuestionPaperSets(structuredQuestionPaper, numberOfSets);
+      }
+      const structuredSolution = structureSolution({
+        questionPaper,
+        grade,
+        academyName,
+        totalMarks,
+        subject,
+        timeDuration,
+      });
+
+      const renderedQuestionPaperHTMLs = [];
+      for (const questionPaper of allQuestionPapersSets) {
+        const renderedQuestionPaperHTML = generateHTML(
+          questionPaper,
+          "./templates/questionPaperTemplate.mustache"
+        );
+        renderedQuestionPaperHTMLs.push(renderedQuestionPaperHTML);
+      }
+
       const renderedSolutionHTML = generateHTML(
         structuredSolution,
         "./templates/solutionTemplate.mustache"
       );
 
-      const questionPaperHTMLUrl = await uploadToS3(
-        renderedQuestionPaperHTML,
-        name,
-        blueprint,
-        "html"
-      );
+      // TODO: use bluebird promise
+      const questionPaperHTMLUrls = [];
+      let index = 0;
+      for (const renderedQuestionPaperHTML of renderedQuestionPaperHTMLs) {
+        const questionPaperHTMLUrl = await uploadToS3(
+          renderedQuestionPaperHTML,
+          `${name}-${++index}`,
+          blueprint,
+          "html"
+        );
+        questionPaperHTMLUrls.push(questionPaperHTMLUrl);
+      }
+
       const solutionHTMLUrl = await uploadToS3(
         renderedSolutionHTML,
         `solution-${name}`,
@@ -121,7 +148,8 @@ class QuestionPaperController {
 
       // Update the QuestionPaper entry with the S3 URLs and status 'completed'
       await generatedPaper.update({
-        questionPaperLink: questionPaperHTMLUrl,
+        questionPaperLink: questionPaperHTMLUrls[0],
+        questionPapersLinks: questionPaperHTMLUrls,
         solutionLink: solutionHTMLUrl,
         status: "completed",
       });
