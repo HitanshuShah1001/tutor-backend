@@ -186,6 +186,22 @@ class QuestionPaperController {
         .json({ error: "Failed to fetch paginated question papers" });
     }
   }
+
+
+  async deleteQuestionPaper(req, res) {
+    try {
+      const { id } = req.params;
+      const questionPaper = await QuestionPaper.findByPk(id);
+      if (!questionPaper) {
+        return res.status(404).json({ error: "Question paper not found" });
+      }
+      await questionPaper.destroy();
+      res.status(200).json({ message: "Question paper deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting question paper:", error);
+      res.status(500).json({ error: "Failed to delete question paper" });
+    }
+  }
 }
 
 export const questionPaperController = new QuestionPaperController();

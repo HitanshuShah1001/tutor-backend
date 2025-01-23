@@ -237,13 +237,12 @@ export function generateHTML(structuredQuestionPaper, templatePath) {
 }
 
 export function getOpenAIMessages(blueprint, prompts) {
-
   const systemPrompt = prompts.generateQuestionPaper.system;
   const userPrompt = prompts.generateQuestionPaper.user.replace(
     '```json\n{\n    "blueprint": []\n}\n```',
     `\`\`\`json\n${JSON.stringify({ blueprint }, null, 4)}\n\`\`\``
   );
-  console.log(blueprint.length,"BLUE PRINT")
+  console.log(blueprint.length, "BLUE PRINT");
 
   return [
     { role: "system", content: systemPrompt },
