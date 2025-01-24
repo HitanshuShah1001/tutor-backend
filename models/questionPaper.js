@@ -1,9 +1,9 @@
 // models/QuestionPaper.js
 
-const { DataTypes } = require('sequelize');
-const sequelize = require('../path/to/your/sequelize/instance');
+import { DataTypes } from 'sequelize';
+import { sequelize } from '../connections/database.js';
 
-const QuestionPaper = sequelize.define(
+export const QuestionPaper = sequelize.define(
   'QuestionPaper',
   {
     name: {
@@ -30,11 +30,11 @@ const QuestionPaper = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    questionPapersLinks: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true,
-      defaultValue: [],
-    },
+    // questionPapersLinks: {
+    //   type: DataTypes.ARRAY(DataTypes.STRING),
+    //   allowNull: true,
+    //   defaultValue: [],
+    // },
     status: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -52,4 +52,3 @@ const QuestionPaper = sequelize.define(
   }
 );
 
-module.exports = QuestionPaper;
